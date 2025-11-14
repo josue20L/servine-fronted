@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { JobOffer } from '../../lib/mock-data';
+import { JobOffer as UiJobOffer } from '../../lib/mock-data';
+
 import { JobOfferCard } from '@/Components/Job-offers/Job-offer-card';
 import { JobOfferModal } from '@/Components/Job-offers/Job-offer-modal';
 import { MapView } from '@/Components/Job-offers/maps/MapView';
@@ -9,6 +10,9 @@ import { SearchHeader } from '@/Components/SearchHeader';
 import { useLogClickMutation } from '../../redux/services/activityApi';
 import { useLogSearchMutation, useUpdateFiltersMutation } from '../../redux/services/searchApi';
 import { useGetAllJobOffersQuery } from '../../redux/services/jobOfferApi';
+import type { JobOffer as ApiJobOffer } from '../../redux/services/jobOfferApi';
+import { isApiError } from '../../redux/services/baseApi';
+
 import { FiltersPanel } from '@/Components/FiltersPanel';
 import { useAppSelector } from '../../redux/hooks';
 import {
@@ -24,7 +28,8 @@ import { useTranslations } from 'next-intl';
 
 export default function JobOffersPage() {
   const t = useTranslations('jobOffers');
-  const [selectedOffer, setSelectedOffer] = useState<JobOffer | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<UiJobOffer | null>(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,16 +38,26 @@ export default function JobOffersPage() {
   // Load offers from API
   const { data: apiOffers = [], isLoading, isError } = useGetAllJobOffersQuery();
 
-  // Normalize API offers to UI shape
-  const offers: JobOffer[] = useMemo(
+  // Normalize API offers to UI shape expected by components
+  const offers: UiJobOffer[] = useMemo(
     () =>
-      (apiOffers as any[]).map((o) => ({
-        ...o,
-        id: (o as any)._id || (o as any).id,
-        createdAt: o?.createdAt ? new Date(o.createdAt as any) : new Date(0),
-        tags: o?.tags || [],
-        photos: o?.photos || [],
-        location: o?.location || { lat: 0, lng: 0, address: '' },
+      (apiOffers as ApiJobOffer[]).map((o) => ({
+        id: o._id || o.id || '',
+        fixerId: o.fixerId,
+        fixerName: o.fixerName,
+        fixerPhoto: o.fixerPhoto,
+        title: o.title ?? '',
+        description: o.description,
+        tags: o.tags ?? [],
+        whatsapp: o.whatsapp,
+        photos: o.photos ?? [],
+        services: o.services,
+        price: o.price,
+        createdAt: o.createdAt ? new Date(o.createdAt) : new Date(0),
+        city: o.city,
+        rating: o.rating,
+        completedJobs: o.completedJobs,
+        location: o.location ?? { lat: 0, lng: 0, address: '' },
       })),
     [apiOffers]
   );
@@ -54,7 +69,8 @@ export default function JobOffersPage() {
   const recentSearches = useAppSelector(selectRecentSearches);
   const persona = { id: '691646c477c99dee64b21689', nombre: 'Usuario POC' };
   const [logClick] = useLogClickMutation();
-  const handleCardClick = async (offer: JobOffer) => {
+  const handleCardClick = async (offer: UiJobOffer) => {
+
     setSelectedOffer(offer);
     setIsModalOpen(true);
 
@@ -217,8 +233,8 @@ export default function JobOffersPage() {
             previousRecentSearchesRef.current = [...recentSearches];
           } catch (error) {
             console.error('Error al registrar búsqueda:', error);
-            if (error && typeof error === 'object' && 'data' in error) {
-              console.error('Detalles del error:', (error as any).data);
+            if (isApiError(error)) {
+              console.error('Detalles del error:', error.data);
             }
           }
         }
@@ -281,8 +297,8 @@ export default function JobOffersPage() {
           console.log('Filtros actualizados exitosamente:', filterData);
         } catch (error) {
           console.error('Error al actualizar filtros:', error);
-          if (error && typeof error === 'object' && 'data' in error) {
-            console.error('Detalles del error:', (error as any).data);
+          if (isApiError(error)) {
+            console.error('Detalles del error:', error.data);
           }
         }
       }, 150); // Pequeño delay para que filteredOffers se actualice

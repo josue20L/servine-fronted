@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { currentFixer, type JobOffer } from "@/app/lib/mock-data"
+import { currentFixer, type JobOffer as UiJobOffer } from "@/app/lib/mock-data"
 import { Plus, Edit2, Trash2, ImageIcon } from "lucide-react"
 import { JobOfferCard } from "@/Components/Job-offers/Job-offer-card"
 import JobOfferForm from "@/Components/Job-offers/Job-offer-form"
@@ -17,6 +17,8 @@ import {
   useDeleteJobOfferMutation,
 } from "@/app/redux/services/jobOfferApi"
 
+import type { JobOffer as ApiJobOffer } from "@/app/redux/services/jobOfferApi"
+
 export default function MyOffersPage() {
   const dispatch = useAppDispatch()
   const currentFixerRedux = useAppSelector((state) => state.fixer.currentFixer)
@@ -28,7 +30,7 @@ export default function MyOffersPage() {
   const [deleteJobOffer] = useDeleteJobOfferMutation()
 
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingOffer, setEditingOffer] = useState<any | null>(null)
+  const [editingOffer, setEditingOffer] = useState<ApiJobOffer | null>(null)
   const [notification, setNotification] = useState<{
     isOpen: boolean
     type: "success" | "error" | "info" | "warning"
@@ -46,7 +48,7 @@ export default function MyOffersPage() {
     }
   }, [dispatch, currentFixerRedux])
 
-  const handleEdit = (offer: JobOffer) => {
+  const handleEdit = (offer: ApiJobOffer) => {
     setEditingOffer(offer)
     setIsFormOpen(true)
   }
@@ -91,7 +93,7 @@ export default function MyOffersPage() {
 
       const cityLocation = defaultLocations[formData.city] || defaultLocations["Cochabamba"]
 
-      const offerData = {
+      const offerData: Omit<ApiJobOffer, "_id" | "id"> = {
         title: formData.title,
         description: formData.description,
         city: formData.city,
@@ -110,7 +112,7 @@ export default function MyOffersPage() {
 
       if (editingOffer) {
         await updateJobOffer({
-          offerId: editingOffer._id || editingOffer.id,
+          offerId: editingOffer._id || editingOffer.id || "",
           data: offerData,
         }).unwrap()
         setNotification({
@@ -206,8 +208,31 @@ export default function MyOffersPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {offers.map((offer, index) => {
-              const offerId = (offer as any)._id || (offer as any).id
-              const offerWithId = { ...offer, id: offerId }
+              const offerId = offer._id || offer.id || ""
+              const offerWithId: UiJobOffer = {
+                // Convertimos la oferta del API al tipo UI esperado por JobOfferCard
+                id: offerId,
+                fixerId: offer.fixerId,
+                fixerName: offer.fixerName,
+                fixerPhoto: offer.fixerPhoto,
+                title: offer.title ?? "",
+                description: offer.description,
+                tags: offer.tags ?? [],
+                whatsapp: offer.whatsapp,
+                photos: offer.photos ?? [],
+                services: offer.services,
+                price: offer.price,
+                createdAt: offer.createdAt ?? new Date(),
+                city: offer.city,
+                rating: offer.rating,
+                completedJobs: offer.completedJobs,
+                location: offer.location ?? {
+                  lat: 0,
+                  lng: 0,
+                  address: "",
+                },
+              }
+
               return (
                 <div
                   key={offerId}
@@ -215,14 +240,14 @@ export default function MyOffersPage() {
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <div className="relative">
-                    <JobOfferCard offer={offerWithId as any} showFixerInfo={true} />
+                    <JobOfferCard offer={offerWithId} showFixerInfo={true} />
 
                     {/* Action Buttons - Positioned absolutely over the card */}
                     <div className="absolute top-12 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleEdit(offer as any)
+                          handleEdit(offer)
                         }}
                         className="p-2.5 bg-white text-primary rounded-lg shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200 border border-primary/20"
                         title="Editar oferta"

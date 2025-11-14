@@ -71,8 +71,8 @@ export default function FixerProfilePage() {
     return map[pay.type] || pay.type.charAt(0).toUpperCase() + pay.type.slice(1);
   };
 
-  // Asegurar dirección
-  const getAddress = (location: any): string => {
+  // Asegurar dirección con tipo explícito
+  const getAddress = (location: { address?: string | null } | null | undefined): string => {
     return location?.address || "Dirección no disponible";
   };
 
